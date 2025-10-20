@@ -1,0 +1,134 @@
+README — Inicializar la base de datos (versión directa y simple)
+
+Sigue esta única lista de pasos, en orden, para dejar la base tc2000_fantasy lista y funcionando. Haz cada paso exactamente como indica antes de pasar al siguiente.
+
+Pasos (ejecutar uno a uno)
+
+Clona/coloca los archivos
+Asegúrate de tener en la misma carpeta:
+
+init_db_mongo.py
+
+main.py
+
+(opcional) index.html
+
+Instala MongoDB y arráncalo
+
+Si ya tienes MongoDB, sólo asegúrate que el servicio esté corriendo y escuchando en localhost:27017.
+
+Si lo instalas localmente, arranca el servicio mongod (o usa el servicio del sistema).
+
+Crea y activa un entorno virtual (opcional pero recomendado)
+
+python -m venv venv
+# Linux / macOS
+source venv/bin/activate
+# Windows PowerShell
+.\venv\Scripts\Activate
+
+
+Instala las dependencias necesarias para inicializar la DB
+
+pip install pymongo dnspython
+
+
+Ejecuta el script de inicialización
+Desde la carpeta donde está init_db_mongo.py:
+
+python init_db_mongo.py
+
+
+Salida esperada: mensajes que confirman la creación de colecciones y el número de documentos insertados.
+
+Fija la contraseña del usuario admin
+El init_db_mongo.py deja un placeholder para el hash de la contraseña. Ejecuta este script rápido para generar y guardar la contraseña real (cambia TuPasswordSeguro123 por la contraseña que quieras):
+
+Crea set_admin_password.py con este contenido:
+
+from pymongo import MongoClient
+import bcrypt
+
+MONGO_URI = "mongodb://localhost:27017/"
+DB_NAME = "tc2000_fantasy"
+NEW_PASSWORD = "TuPasswordSeguro123"  # <-- cambia esto
+
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
+
+admin = db.users.find_one({"username": "admin"})
+if not admin:
+    print("No existe usuario admin")
+else:
+    hashed = bcrypt.hashpw(NEW_PASSWORD.encode("utf-8"), bcrypt.gensalt())
+    db.users.update_one({"_id": admin["_id"]}, {"$set": {"password_hash": hashed}})
+    print("Contraseña del admin actualizada.")
+
+
+Instala bcrypt y ejecuta:
+
+pip install bcrypt
+python set_admin_password.py
+
+
+Verifica que los datos estén en la DB
+Abre mongosh o mongocli y ejecuta:
+
+use tc2000_fantasy
+db.users.find().pretty()
+db.pilots.find().pretty()
+db.teams.find().pretty()
+db.circuits.find().pretty()
+db.events.find().pretty()
+
+
+Debes ver los documentos insertados por init_db_mongo.py y el admin con password_hash como un Binary (hash bcrypt).
+
+(Opcional) Arranca el backend y prueba el frontend
+Instala dependencias del backend e inicia main.py:
+
+pip install flask flask-pymongo flask-cors flask-socketio pyjwt
+python main.py
+
+
+Abre en el navegador:
+
+http://localhost:5000/
+
+
+Registra/loguea con el admin (username: admin y la contraseña que pusiste).
+
+Prueba listar pilotos y crear pilotos (POST /pilots) desde la interfaz.
+
+Si algo falla — opciones rápidas de diagnóstico / alternativas
+
+Si la secuencia anterior no funciona, prueba estas soluciones (en orden):
+
+MongoDB no está corriendo
+
+Mensaje de error típico: conexión rechazada.
+
+Solución: arranca mongod o revisa el servicio (Windows Services / systemctl start mongod).
+
+Permiso denegado al iniciar mongod
+
+Verifica el dbpath y los permisos del directorio de datos de MongoDB.
+
+Error al ejecutar init_db_mongo.py (import pymongo not found)
+
+Asegúrate de activar el venv y pip install pymongo dnspython.
+
+No puedes fijar la contraseña (error con bcrypt)
+
+Instala bcrypt (pip install bcrypt) y vuelve a ejecutar set_admin_password.py.
+
+Prefieres usar Docker (todo contenido en contenedores)
+
+Crea un docker-compose.yml con MongoDB y un job que ejecute init_db_mongo.py (si querés te lo genero). Ejecuta:
+
+docker compose up --build
+
+
+El frontend no se conecta a WebSocket o SSE
+
+Asegúrate de abrir http://localhost:5000/ (no abrir el archivo index.html con file://), porque el archivo debe servirse desde el mismo origen que el backend.

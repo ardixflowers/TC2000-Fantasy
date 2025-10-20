@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TC2000 Fantasy</title>
+
+  <!-- Font Racing -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- Socket.IO client (global io) -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="theme-light">
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="brand">
+          <img src="https://static.thenounproject.com/png/3502215-200.png" alt="logo" class="logo" />
+          <div class="title-wrap">
+            <h1 class="title">TC2000 <span class="subtitle">Fantasy</span></h1>
+            <small class="tagline">Proyecto educativo — Inspirado en F1 Fantasy</small>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button id="themeToggle" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">🌓</button>
+          <div id="userArea" class="user-area">
+            <button id="avatarBtn" class="avatar-btn" aria-haspopup="true" aria-expanded="false">
+              <img id="avatarImg" src="" alt="avatar" class="avatar-img hidden">
+              <span id="userLabel">Ingresar</span>
+            </button>
+            <button id="logoutBtn" class="btn small secondary hidden">Cerrar sesión</button>
+          </div>
+          <button id="hamburger" class="hamburger" aria-label="Abrir menú">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+
+      <nav class="site-nav" id="siteNav" aria-label="Main navigation">
+        <ul>
+          <li><a href="#inicio" data-page="inicio" class="nav-link">Inicio</a></li>
+          <li><a href="#estadisticas" data-page="estadisticas" class="nav-link">Estadísticas</a></li>
+          <li><a href="#premios" data-page="premios" class="nav-link">Premios</a></li>
+          <li><a href="#novedades" data-page="novedades" class="nav-link">Novedades</a></li>
+          <li><a href="#como-jugar" data-page="como-jugar" class="nav-link">Cómo jugar</a></li>
+          <li><a href="#reglas" data-page="reglas" class="nav-link">Reglas</a></li>
+          <li><a href="#faq" data-page="faq" class="nav-link">FAQ</a></li>
+          <li><a href="#admin" data-page="admin" class="nav-link admin-only hidden">Admin</a></li>
+        </ul>
+        <div class="nav-underline" id="navUnderline" aria-hidden="true"></div>
+      </nav>
+    </header>
+
+    <main id="content" class="main container" role="main">
+      <section id="inicio" class="card hero">
+        <div class="hero-left">
+          <h2>Bienvenido a <span class="accent">TC2000 Fantasy</span></h2>
+          <p class="lead">Arma tu equipo, compite con amigos y sigue las carreras en tiempo real.</p>
+          <div class="hero-actions">
+            <button id="openAuth" class="btn large">Iniciar / Registrarse</button>
+            <a href="#como-jugar" class="btn outline">Cómo jugar</a>
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="status-cards">
+            <div class="status-card">
+              <div class="sc-title">SSE</div>
+              <div class="sc-value" id="dot-sse"><span class="dot off"></span></div>
+            </div>
+            <div class="status-card">
+              <div class="sc-title">WS</div>
+              <div class="sc-value" id="dot-ws"><span class="dot off"></span></div>
+            </div>
+            <div class="status-card">
+              <div class="sc-title">Usuario</div>
+              <div class="sc-value" id="dot-user"><span class="dot off"></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="estadisticas" class="card">
+        <div class="section-head">
+          <h3>Pilotos</h3>
+          <div>
+            <button id="refreshPilots" class="btn small secondary">Refrescar</button>
+          </div>
+        </div>
+        <div id="pilotsGrid" class="grid"></div>
+      </section>
+
+      <section id="premios" class="card">
+        <h3>Premios</h3>
+        <ul>
+          <li>🥇 1º puesto: experiencia VIP TC2000.</li>
+          <li>🥈 2º puesto: kit oficial.</li>
+          <li>🥉 3º puesto: indumentaria TC2000.</li>
+        </ul>
+      </section>
+
+      <section id="novedades" class="card">
+        <h3>Novedades</h3>
+        <div id="newsList">— Sin novedades —</div>
+      </section>
+
+      <section id="como-jugar" class="card">
+        <h3>Cómo jugar</h3>
+        <ol>
+          <li>Registrate o iniciá sesión (modal).</li>
+          <li>Elegí tus pilotos favoritos.</li>
+          <li>Sumá puntos según su rendimiento en las carreras.</li>
+          <li>Competí con otros usuarios.</li>
+        </ol>
+      </section>
+
+      <section id="reglas" class="card">
+        <h3>Reglas del juego</h3>
+        <ul>
+          <li>Un solo equipo activo por usuario.</li>
+          <li>Los puntos se actualizan después de cada carrera.</li>
+          <li>Los cambios de pilotos sólo se permiten antes de cada fecha.</li>
+        </ul>
+      </section>
+
+      <section id="faq" class="card">
+        <h3>Preguntas frecuentes</h3>
+        <details><summary>¿Es gratis jugar?</summary><p>Sí, es gratuito y recreativo.</p></details>
+        <details><summary>¿Cómo se suman puntos?</summary><p>Según el rendimiento real de los pilotos.</p></details>
+      </section>
+
+      <!-- NUEVA SECCIÓN ADMIN unificada -->
+      <section id="admin" class="card" hidden>
+        <h3>Panel de Administración</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="card small">
+            <h4>Crear Piloto</h4>
+            <form id="createPilotForm" class="form-inline">
+              <input type="text" id="pilot_name" placeholder="Nombre del piloto" required>
+              <input type="text" id="pilot_team" placeholder="Equipo">
+              <input type="number" id="pilot_number" placeholder="N° auto">
+              <button type="button" id="createPilotBtn" class="btn small">Agregar piloto</button>
+            </form>
+          </div>
+          <div class="card small">
+            <h4>Crear Equipo</h4>
+            <form id="createTeamForm" class="form-inline">
+              <input type="text" id="team_name" placeholder="Nombre del equipo">
+              <input type="text" id="team_country" placeholder="País">
+              <button type="button" id="createTeamBtn" class="btn small">Crear equipo</button>
+            </form>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <h4>Equipos existentes</h4>
+          <div id="teamsList" class="list"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>© 2025 TC2000 Fantasy — Proyecto educativo</p>
+    </footer>
+
+    <div id="authModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="modal-panel">
+        <button id="authClose" class="modal-close" aria-label="Cerrar">✕</button>
+        <h3 id="authTitle">Iniciar sesión</h3>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="login">Login</button>
+          <button class="tab" data-tab="register">Registro</button>
+        </div>
+
+        <div class="tab-content" id="tab-login">
+          <form id="loginForm" class="form">
+            <label for="username">Usuario</label>
+            <input id="username" name="username" type="text" required />
+            <label for="password">Contraseña</label>
+            <input id="password" name="password" type="password" required />
+            <div class="form-actions">
+              <button type="submit" id="loginBtn" class="btn">Iniciar sesión</button>
+              <div id="loginSpinner" class="spinner hidden" aria-hidden="true"></div>
+            </div>
+            <div id="loginError" class="field-error hidden"></div>
+          </form>
+        </div>
+
+        <div class="tab-content hidden" id="tab-register">
+          <form id="registerForm" class="form">
+            <label for="reg_user">Usuario</label>
+            <input id="reg_user" name="reg_user" type="text" required />
+            <label for="reg_email">Email</label>
+            <input id="reg_email" name="reg_email" type="email" />
+            <label for="reg_pass">Contraseña</label>
+            <input id="reg_pass" name="reg_pass" type="password" required />
+            <label for="reg_pass2">Confirmar contraseña</label>
+            <input id="reg_pass2" name="reg_pass2" type="password" required />
+            <div class="form-actions">
+              <button type="submit" id="registerBtn" class="btn">Registrarme</button>
+              <div id="registerSpinner" class="spinner hidden" aria-hidden="true"></div>
+            </div>
+            <div id="registerError" class="field-error hidden"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="toasts" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
+  <!-- components + main -->
+  <script type="module" src="components.js"></script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>

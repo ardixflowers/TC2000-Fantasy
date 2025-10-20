@@ -1,0 +1,16 @@
+# py -m pip install -r requirements.txt
+
+# TC2000 Fantasy - Backend dependencies
+Flask==3.0.3
+Flask-Cors==4.0.1
+Flask-PyMongo==3.0.1
+Flask-SocketIO==5.3.6
+
+bcrypt==4.1.2
+PyJWT==2.9.0
+
+pymongo==4.10.1
+dnspython==2.6.1
+
+python-dotenv==1.0.1
+
