@@ -1,11 +1,4 @@
 // components.js
-// Exporta utilidades UI reutilizables:
-//  - toast(message, opts)
-//  - showModal(id), hideModal(id)
-//  - showSpinner(el, show)
-//  - createPilotCard(pilot)
-
-// Toast manager simple
 export function toast(message, opts = {}) {
   const toasts = document.getElementById("toasts");
   if (!toasts) {
@@ -23,7 +16,6 @@ export function toast(message, opts = {}) {
   }, opts.duration || 3500);
 }
 
-// Modal helpers (actúan sobre id del modal)
 export function showModal(id) {
   const m = document.getElementById(id);
   if (!m) return;
@@ -37,7 +29,6 @@ export function hideModal(id) {
   m.setAttribute("aria-hidden", "true");
 }
 
-// Spinner helper: recibe el elemento DOM (o selector) y lo muestra/oculta
 export function showSpinner(elOrSelector, show = true) {
   let el = null;
   if (!elOrSelector) return;
@@ -47,34 +38,43 @@ export function showSpinner(elOrSelector, show = true) {
   if (show) el.classList.remove("hidden"); else el.classList.add("hidden");
 }
 
-// Factory: tarjeta de piloto (devuelve HTMLElement)
 export function createPilotCard(pilot = {}) {
   const div = document.createElement("div");
-  div.className = "pilot-card";
-
+  div.className = "pilot-card card";
   const initials = (pilot.name || "?")
     .split(" ")
     .map(s => (s || "")[0] || "")
     .slice(0, 2)
     .join("")
     .toUpperCase();
-
   div.innerHTML = `
     <div class="pilot-avatar" aria-hidden="true">${escapeHtml(initials)}</div>
-    <div style="flex:1">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong style="color:var(--yellow)">${escapeHtml(pilot.name || "Sin nombre")}</strong>
-        <span style="font-size:13px;color:var(--muted)">#${escapeHtml(String(pilot.car_number || "?"))}</span>
+    <div class="pilot-body">
+      <div class="pilot-head">
+        <strong class="pilot-name">${escapeHtml(pilot.name || "Sin nombre")}</strong>
+        <span class="pilot-number">#${escapeHtml(String(pilot.car_number || "?"))}</span>
       </div>
-      <div style="font-size:13px;color:var(--muted)">${escapeHtml(pilot.team || "Sin equipo")}</div>
+      <div class="pilot-team muted">${escapeHtml(pilot.team || "Sin equipo")}</div>
     </div>
   `;
   return div;
 }
 
-// pequeño helper para evitar inyección accidental
+export function createTeamCard(team = {}) {
+  const div = document.createElement("div");
+  div.className = "team-card card";
+  div.innerHTML = `
+    <div class="team-logo" aria-hidden="true">${(team.name||"E")[0].toUpperCase()}</div>
+    <div class="team-body">
+      <strong class="team-name">${escapeHtml(team.name || "Sin nombre")}</strong>
+      <div class="muted">${escapeHtml(team.base_country || "")}</div>
+    </div>
+  `;
+  return div;
+}
+
 function escapeHtml(str) {
-  return String(str)
+  return String(str || "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")

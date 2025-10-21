@@ -93,6 +93,93 @@ body, html { height:100%; margin:0; background: var(--bg); color:var(--metal); -
 .pilot-card{ display:flex; gap:12px; align-items:center; padding:12px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent); }
 .pilot-avatar{ width:56px; height:56px; border-radius:8px; background:linear-gradient(90deg,var(--red),#000); display:flex; align-items:center; justify-content:center; color:white; font-weight:800; font-size:18px; }
 
+/* Sección estadisticas: grids */
+#estadisticas .section-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:8px 0;
+  gap:12px;
+}
+#estadisticas .grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap:12px;
+  margin-bottom:16px;
+}
+
+/* Card baseline (si ya tienes .card, estos ajustan) */
+.card {
+  background: var(--card-bg, #0f0f0f);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  color: var(--text, #fff);
+}
+
+/* Pilot card */
+.pilot-card {
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:10px;
+}
+.pilot-avatar {
+  width:56px;
+  height:56px;
+  border-radius:8px;
+  background: linear-gradient(135deg,#c5121b,#ffb016);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:20px;
+  color:white;
+  flex-shrink:0;
+}
+.pilot-body { display:flex; flex-direction:column; gap:6px; width:100%; }
+.pilot-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.pilot-name { color:var(--yellow,#ffd54a); font-size:15px; }
+.pilot-number { font-size:13px; color:var(--muted,#bbb); }
+
+/* Team card */
+.team-card {
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:10px;
+}
+.team-logo {
+  width:56px;
+  height:56px;
+  border-radius:8px;
+  background: linear-gradient(135deg,#222,#444);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:22px;
+  color:#fff;
+  flex-shrink:0;
+}
+.team-body { display:flex; flex-direction:column; gap:4px; }
+.team-name { font-size:15px; }
+
+/* admin teams list row */
+.team-row { display:flex; justify-content:space-between; align-items:center; padding:8px; }
+
+/* Muted text helper */
+.muted { color: var(--muted, #9aa0a6); font-size:13px; }
+
+/* Buttons small override */
+.btn.small { padding:6px 8px; font-size:13px; }
+
+/* Responsive tweaks */
+@media (max-width:700px) {
+  #estadisticas .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .pilot-avatar, .team-logo { width:48px; height:48px; font-size:18px; }
+}
+
 /* Footer */
 .site-footer{ text-align:center; padding:18px; color:var(--muted); }
 
