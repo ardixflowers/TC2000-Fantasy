@@ -1,4 +1,4 @@
-# init_db_mongo.py|
+# init_db_mongo.py
 # Inicialización de MongoDB para TC2000 Fantasy
 # Requisitos: pip install pymongo dnspython
 
@@ -45,32 +45,31 @@ db.users.insert_one({
 
 # ---------- TEAMS ----------
 equipos = [
-    {"name": "Toyota Gazoo Racing YPF Infinia", "base_country": "Argentina", "created_at": datetime.utcnow()},
-    {"name": "Honda Racing Team", "base_country": "Argentina", "created_at": datetime.utcnow()},
-    {"name": "YPF Elaion AURO Pro Racing", "base_country": "Argentina", "created_at": datetime.utcnow()},
-    {"name": "Axion Energy Sport", "base_country": "Argentina", "created_at": datetime.utcnow()},
-    {"name": "Fiat", "base_country": "Argentina", "created_at": datetime.utcnow()},
-    {"name": "Chevrolet", "base_country": "Argentina", "created_at": datetime.utcnow()}
+    {"name": "Toyota Gazoo Racing YPF Infinia", "base_country": "Argentina", "logo_png": None, "created_at": datetime.utcnow()},
+    {"name": "Honda Racing Team", "base_country": "Argentina", "logo_png": None, "created_at": datetime.utcnow()},
+    {"name": "YPF Elaion AURO Pro Racing", "base_country": "Argentina", "logo_png": None, "created_at": datetime.utcnow()},
+    {"name": "Axion Energy Sport", "base_country": "Argentina", "logo_png": None, "created_at": datetime.utcnow()},
+    {"name": "Fiat", "base_country": "Argentina", "logo_png": None, "created_at": datetime.utcnow()},
+    {"name": "Chevrolet", "base_country": "Argentina", "logo_png": None, "created_at": datetime.utcnow()}
 ]
 team_ids = db.teams.insert_many(equipos).inserted_ids
 
 # ---------- PILOTS ----------
-
 pilotos = [
-    {"name": "Matías Rossi", "team_id": team_ids[0], "car_number": 163, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Emiliano Stang", "team_id": team_ids[0], "car_number": 137, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Franco Vivian", "team_id": team_ids[2], "car_number": 132, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Leonel Pernía", "team_id": team_ids[1], "car_number": 106, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Franco Morillo", "team_id": team_ids[1], "car_number": 84, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Facundo Aldrighetti", "team_id": team_ids[2], "car_number": 68, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Ulises Campillay", "team_id": team_ids[2], "car_number": 72, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Gabriel P. de León", "team_id": team_ids[0], "car_number": 74, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Marcelo Ciarrocchi", "team_id": team_ids[0], "car_number": 76, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Tiago Pernía", "team_id": team_ids[1], "car_number": 46, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Matías Capurro", "team_id": team_ids[3], "car_number": 38, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Nicolás Palau", "team_id": team_ids[4], "car_number": 26, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Mateo Polakovich", "team_id": team_ids[4], "car_number": 30, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
-    {"name": "Figgo Bessone", "team_id": team_ids[5], "car_number": 22, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}}
+    {"name": "Matías Rossi", "team_id": team_ids[0], "car_number": 163, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Emiliano Stang", "team_id": team_ids[0], "car_number": 137, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Franco Vivian", "team_id": team_ids[2], "car_number": 132, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Leonel Pernía", "team_id": team_ids[1], "car_number": 106, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Franco Morillo", "team_id": team_ids[1], "car_number": 84, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Facundo Aldrighetti", "team_id": team_ids[2], "car_number": 68, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Ulises Campillay", "team_id": team_ids[2], "car_number": 72, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Gabriel P. de León", "team_id": team_ids[0], "car_number": 74, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Marcelo Ciarrocchi", "team_id": team_ids[0], "car_number": 76, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Tiago Pernía", "team_id": team_ids[1], "car_number": 46, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Matías Capurro", "team_id": team_ids[3], "car_number": 38, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Nicolás Palau", "team_id": team_ids[4], "car_number": 26, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Mateo Polakovich", "team_id": team_ids[4], "car_number": 30, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}},
+    {"name": "Figgo Bessone", "team_id": team_ids[5], "car_number": 22, "avatar_png": None, "current_score": 0, "created_at": datetime.utcnow(), "stats": {"podiums": 0, "wins": 0, "DNF": 0}}
 ]
 pilot_ids = db.pilots.insert_many(pilotos).inserted_ids
 

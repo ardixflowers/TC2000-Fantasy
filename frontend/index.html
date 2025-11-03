@@ -5,20 +5,23 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TC2000 Fantasy</title>
 
+  <!-- Page Icon -->
+  <link rel="icon" href="resources\img\tcfantasy.ico">
+
   <!-- Font Racing -->
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 
   <!-- Socket.IO client (global io) -->
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="resources\css\style.css">
 </head>
 <body>
   <div id="app" class="theme-light">
     <header class="site-header">
       <div class="header-inner">
         <div class="brand">
-          <img src="https://static.thenounproject.com/png/3502215-200.png" alt="logo" class="logo" />
+          <img src="resources\img\tcfantasy.ico" alt="logo" class="logo" />
           <div class="title-wrap">
             <h1 class="title">TC2000 <span class="subtitle">Fantasy</span></h1>
             <small class="tagline">Proyecto educativo — Inspirado en F1 Fantasy</small>
@@ -49,7 +52,7 @@
           <li><a href="#como-jugar" data-page="como-jugar" class="nav-link">Cómo jugar</a></li>
           <li><a href="#reglas" data-page="reglas" class="nav-link">Reglas</a></li>
           <li><a href="#faq" data-page="faq" class="nav-link">FAQ</a></li>
-          <li><a href="#admin" data-page="admin" class="nav-link admin-only hidden">Admin</a></li>
+          <li><a href="admin.html" data-page="admin" class="nav-link admin-only hidden">Admin</a></li>
         </ul>
         <div class="nav-underline" id="navUnderline" aria-hidden="true"></div>
       </nav>
@@ -91,6 +94,13 @@
           </div>
         </div>
         <div id="pilotsGrid" class="grid"></div>
+        <div class="section-head">
+          <h3>Equipos</h3>
+          <div>
+            <button id="refreshTeams" class="btn small secondary">Refrescar</button>
+          </div>
+        </div>
+        <div id="teamsGrid" class="grid"></div>
       </section>
 
       <section id="premios" class="card">
@@ -132,33 +142,6 @@
         <details><summary>¿Cómo se suman puntos?</summary><p>Según el rendimiento real de los pilotos.</p></details>
       </section>
 
-      <!-- NUEVA SECCIÓN ADMIN unificada -->
-      <section id="admin" class="card" hidden>
-        <h3>Panel de Administración</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="card small">
-            <h4>Crear Piloto</h4>
-            <form id="createPilotForm" class="form-inline">
-              <input type="text" id="pilot_name" placeholder="Nombre del piloto" required>
-              <input type="text" id="pilot_team" placeholder="Equipo">
-              <input type="number" id="pilot_number" placeholder="N° auto">
-              <button type="button" id="createPilotBtn" class="btn small">Agregar piloto</button>
-            </form>
-          </div>
-          <div class="card small">
-            <h4>Crear Equipo</h4>
-            <form id="createTeamForm" class="form-inline">
-              <input type="text" id="team_name" placeholder="Nombre del equipo">
-              <input type="text" id="team_country" placeholder="País">
-              <button type="button" id="createTeamBtn" class="btn small">Crear equipo</button>
-            </form>
-          </div>
-        </div>
-        <div style="margin-top:12px;">
-          <h4>Equipos existentes</h4>
-          <div id="teamsList" class="list"></div>
-        </div>
-      </section>
     </main>
 
     <footer class="site-footer">
