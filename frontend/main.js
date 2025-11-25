@@ -1,7 +1,9 @@
-// main.js (módulo) — usa components.js para UI helpers
+// main.js (reemplazo completo) - actualizado para encender el LED de usuario correctamente
+// Usa components.js para helpers (toast, showSpinner, createPilotCard)
 import { toast, showModal, hideModal, showSpinner, createPilotCard } from './components.js';
 
 const API_BASE = "http://localhost:5000"; // ajustá si corre en otro host/puerto
+const defaultPath = './resources/uploads/default-avatar.png'; // fallback para avatares/equipos/pilotos
 
 // Safe selectors
 const $ = sel => document.querySelector(sel);
@@ -11,54 +13,135 @@ const $$ = sel => Array.from(document.querySelectorAll(sel));
 let token = localStorage.getItem("tc2000_token") || null;
 let userInfo = JSON.parse(localStorage.getItem("tc2000_user") || "null");
 
-// DOM elements (declaración - serán null si no existen)
-let navLinks, navUnderline, siteNav, hamburger, drawer, drawerBackdrop, drawerClose, drawerLinks;
-let openAuth, authModal, authClose, tabs, tabContents, loginForm, registerForm, loginSpinner, registerSpinner;
-let loginError, registerError, userLabel, avatarImg, avatarBtn, logoutBtn, adminPanel, refreshPilots, pilotsGrid, createPilotBtn;
-let themeToggle, appRoot, dotSSE, dotWS, dotUser, toastsEl;
+// helpers
+function decodeJwtPayload(jwt) {
+  try {
+    if (!jwt) return null;
+    // limpiar formato tipo b'eyJhbGci...'
+    jwt = jwt.replace(/^b'|^b"|"$|'$/g, '');
+    const parts = jwt.split(".");
+    if (parts.length < 2) return null;
+    const payloadB64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payloadB64.padEnd(Math.ceil(payloadB64.length / 4) * 4, "=");
+    const json = atob(padded);
+    return JSON.parse(json);
+  } catch (e) {
+    console.error("decodeJwtPayload error:", e);
+    return null;
+  }
+}
 
-// Initialize after DOM ready
+async function fetchMe() {
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_BASE}/me`, {
+      headers: { "Authorization": "Bearer " + token }
+    });
+    if (!res.ok) return null;
+    return await res.json(); // <-- devolvemos el JSON directamente
+  } catch (err) {
+    console.error("fetchMe error:", err);
+    return null;
+  }
+}
+
+function saveUserInfoToStorage(u) {
+  userInfo = u || null;
+  if (userInfo) localStorage.setItem("tc2000_user", JSON.stringify(userInfo));
+  else localStorage.removeItem("tc2000_user");
+}
+
+function applyAdminVisibility() {
+  const adminLink = document.querySelector(".nav-link.admin-only");
+  // fallback: check userInfo first, then token payload
+  let isAdmin = false;
+  if (userInfo && userInfo.role === "admin") isAdmin = true;
+  else if (!userInfo && token) {
+    const p = decodeJwtPayload(token);
+    if (p && (p.role === "admin" || (Array.isArray(p.roles) && p.roles.includes("admin")))) isAdmin = true;
+  }
+  if (adminLink) adminLink.classList.toggle("hidden", !isAdmin);
+  // Also show/hide admin section if it exists in-page
+  const adminSection = document.getElementById("admin");
+  if (adminSection) adminSection.classList.toggle("hidden", !isAdmin);
+}
+
+// --- NUEVO: helper para actualizar el LED de usuario (#dot-user .dot)
+function setDotUserState(state) {
+  // state: "ok" | "off" | "err"
+  const dot = document.querySelector("#dot-user .dot");
+  if (!dot) return;
+  dot.classList.remove("ok", "off", "err");
+  if (state === "ok") dot.classList.add("ok");
+  else if (state === "err") dot.classList.add("err");
+  else dot.classList.add("off");
+}
+
+function hydrateUserUI() {
+  const userLabel = $("#userLabel");
+  const avatarImg = $("#avatarImg");
+  const logoutBtn = $("#logoutBtn");
+  if (userInfo && userInfo.username) {
+    if (userLabel) userLabel.textContent = userInfo.username;
+    if (avatarImg) { avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.username)}&background=c5121b&color=fff`; avatarImg.classList.remove("hidden"); }
+    if (logoutBtn) logoutBtn.classList.remove("hidden");
+    // user present -> LED ok
+    setDotUserState("ok");
+  } else {
+    if (userLabel) userLabel.textContent = "Ingresar";
+    if (avatarImg) avatarImg.classList.add("hidden");
+    if (logoutBtn) logoutBtn.classList.add("hidden");
+    // no user -> LED off
+    setDotUserState("off");
+  }
+  applyAdminVisibility();
+}
+
+// small escaping helper
+function escapeHtml(s){ return String(s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'", "&#39;"); }
+
+// === Inicio DOMContentLoaded ===
 document.addEventListener("DOMContentLoaded", () => {
   // bind elements
-  navLinks = $$(".nav-link");
-  navUnderline = $("#navUnderline");
-  siteNav = $("#siteNav");
-  hamburger = $("#hamburger");
-  drawer = $("#drawer");
-  drawerBackdrop = $("#drawerBackdrop");
-  drawerClose = $("#drawerClose");
-  drawerLinks = $$(".drawer-link");
+  const navLinksAll = $$(".nav-link");
+  const navUnderline = $("#navUnderline");
+  const siteNav = $("#siteNav");
+  const hamburger = $("#hamburger");
+  const drawer = $("#drawer");
+  const drawerBackdrop = $("#drawerBackdrop");
+  const drawerClose = $("#drawerClose");
+  const drawerLinks = $$(".drawer-link");
 
-  openAuth = $("#openAuth");
-  authModal = $("#authModal");
-  authClose = $("#authClose");
-  tabs = $$(".tab");
-  tabContents = $$(".tab-content");
-  loginForm = $("#loginForm");
-  registerForm = $("#registerForm");
-  loginSpinner = $("#loginSpinner");
-  registerSpinner = $("#registerSpinner");
-  loginError = $("#loginError");
-  registerError = $("#registerError");
+  const openAuth = $("#openAuth");
+  const authModal = $("#authModal");
+  const authClose = $("#authClose");
+  const tabs = $$(".tab");
+  const tabContents = $$(".tab-content");
+  const loginForm = $("#loginForm");
+  const registerForm = $("#registerForm");
+  const loginSpinner = $("#loginSpinner");
+  const registerSpinner = $("#registerSpinner");
+  const loginError = $("#loginError");
+  const registerError = $("#registerError");
 
-  userLabel = $("#userLabel");
-  avatarImg = $("#avatarImg");
-  avatarBtn = $("#avatarBtn");
-  logoutBtn = $("#logoutBtn");
-  adminPanel = $("#adminPanel");
+  const userLabel = $("#userLabel");
+  const avatarImg = $("#avatarImg");
+  const avatarBtn = $("#avatarBtn");
+  const logoutBtn = $("#logoutBtn");
 
-  refreshPilots = $("#refreshPilots");
-  pilotsGrid = $("#pilotsGrid");
-  createPilotBtn = $("#createPilotBtn");
+  const refreshPilots = $("#refreshPilots");
+  const pilotsGrid = $("#pilotsGrid");
+  const teamsGrid = $("#teamsGrid"); // elemento para listar equipos en la vista pública (si existe)
+  const createPilotBtn = $("#createPilotBtn");
 
-  themeToggle = $("#themeToggle");
-  appRoot = $("#app");
-  dotSSE = document.querySelector("#dot-sse .dot");
-  dotWS = document.querySelector("#dot-ws .dot");
-  dotUser = document.querySelector("#dot-user .dot");
-  toastsEl = $("#toasts");
+  const themeToggle = $("#themeToggle");
+  const appRoot = $("#app");
+  const dotSSE = document.querySelector("#dot-sse .dot");
+  const dotWS = document.querySelector("#dot-ws .dot");
+  // const dotUser = document.querySelector("#dot-user .dot"); // no hace falta, usamos setDotUserState
+  const toastsEl = $("#toasts");
 
-  // NAV underline animation
+  // NAV underline animation (kept minimal)
   function updateUnderline(targetLink) {
     if (!navUnderline || !siteNav) return;
     if (!targetLink) {
@@ -70,7 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const left = rect.left - navRect.left + siteNav.scrollLeft;
     navUnderline.style.width = `${rect.width}px`;
     navUnderline.style.transform = `translateX(${left}px)`;
-    navLinks.forEach(a => a.classList.toggle("active", a === targetLink));
+    navLinksAll.forEach(a => a.classList.toggle("active", a === targetLink));
   }
   window.addEventListener("resize", () => {
     const active = document.querySelector(".nav-link.active");
@@ -78,48 +161,34 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // nav anchors
-  navLinks.forEach(link => {
+  navLinksAll.forEach(link => {
     link.addEventListener("click", e => {
-      e.preventDefault();
-      const page = link.getAttribute("href");
-      const target = document.querySelector(page);
-      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-      updateUnderline(link);
-      history.replaceState(null, "", page);
+      const href = link.getAttribute("href") || "";
+      if (href.startsWith("#")) {
+        e.preventDefault();
+        const page = href;
+        // admin section guarded: if #admin, check role
+        if (page === "#admin") {
+          const stored = JSON.parse(localStorage.getItem("tc2000_user") || "null");
+          let allowed = stored && stored.role === "admin";
+          if (!allowed && token) {
+            const payload = decodeJwtPayload(token);
+            if (payload && (payload.role === "admin" || (Array.isArray(payload.roles) && payload.roles.includes("admin")))) allowed = true;
+          }
+          if (!allowed) {
+            toast("Acceso denegado: solo administradores.");
+            return;
+          }
+        }
+        const target = document.querySelector(page);
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        updateUnderline(link);
+        history.replaceState(null, "", page);
+      } else {
+        // link to admin.html or external page — allow default navigation
+      }
     });
   });
-
-  // initial underline
-  const first = document.querySelector(".nav-link");
-  if (first) updateUnderline(first);
-  const hash = window.location.hash || "#inicio";
-  const initial = document.querySelector(`.nav-link[href="${hash}"]`);
-  if (initial) updateUnderline(initial);
-
-  // Drawer mobile
-  if (hamburger && drawer && drawerBackdrop) {
-    hamburger.addEventListener("click", () => {
-      drawer.classList.add("open");
-      drawerBackdrop.classList.remove("hidden");
-      drawer.setAttribute("aria-hidden", "false");
-    });
-    drawerClose && drawerClose.addEventListener("click", closeDrawer);
-    drawerBackdrop && drawerBackdrop.addEventListener("click", closeDrawer);
-    drawerLinks.forEach(l => l.addEventListener("click", e => {
-      closeDrawer();
-      const href = l.getAttribute("href");
-      const t = document.querySelector(href);
-      if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
-      history.replaceState(null, "", href);
-    }));
-  }
-
-  function closeDrawer() {
-    if (!drawer || !drawerBackdrop) return;
-    drawer.classList.remove("open");
-    drawerBackdrop.classList.add("hidden");
-    drawer.setAttribute("aria-hidden", "true");
-  }
 
   // Theme
   function setTheme(theme) {
@@ -140,7 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   openAuth && openAuth.addEventListener("click", openAuthModal);
   avatarBtn && avatarBtn.addEventListener("click", openAuthModal);
-
   authClose && authClose.addEventListener("click", () => authModal && authModal.classList.add("hidden"));
   tabs.forEach(t => t.addEventListener("click", () => {
     tabs.forEach(x => x.classList.remove("active"));
@@ -149,7 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
     tabContents.forEach(tc => tc.classList.toggle("hidden", tc.id !== `tab-${target}`));
   }));
 
-  // Auth: register
+  // register handler
   registerForm && registerForm.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const username = $("#reg_user").value.trim();
@@ -166,7 +234,6 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password: pass, role: "user" })
-
       });
       const data = await res.json();
       if (!res.ok) {
@@ -182,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } finally { showSpinner(registerSpinner, false); }
   });
 
-  // Auth: login
+  // login handler — store token, then try /me; fallback to token decode// login handler — store token, luego /me; fallback a token decode o data.role
   loginForm && loginForm.addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const username = $("#username").value.trim();
@@ -196,52 +263,107 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
       });
-      const data = await res.json();
+      const data = await res.json().catch(()=>({}));
       if (!res.ok || !data.token) {
         loginError && (loginError.textContent = data.error || "Credenciales inválidas", loginError.classList.remove("hidden"));
+        setDotUserState("err");
+        return;
+      }
+
+      // ok: tenemos token
+      token = data.token;
+      localStorage.setItem("tc2000_token", token);
+
+      // intentar /me autoritativo
+      const meResp = await fetchMe();
+
+      if (meResp) {
+        // /me respondió correctamente → usamos lo que devuelve el backend
+        userInfo = {
+          username: meResp.username || username,
+          role: meResp.role || "user"
+        };
       } else {
-        token = data.token;
-        userInfo = { username, role: data.role || "user" };
-        localStorage.setItem("tc2000_token", token);
-        localStorage.setItem("tc2000_user", JSON.stringify(userInfo));
-        hydrateUserUI();
-        authModal && authModal.classList.add("hidden");
-        toast(`Bienvenido, ${username}`);
+        // fallback: si /me no existe o falló, decodificamos el token
+        const payload = decodeJwtPayload(token);
+        userInfo = {
+          username: username,
+          role: (payload && payload.role) || "user"
+        };
+      }
+
+      // guardamos y actualizamos UI
+      saveUserInfoToStorage(userInfo);
+      hydrateUserUI();
+      authModal && authModal.classList.add("hidden");
+      toast(`Bienvenido, ${userInfo.username}`);
+
+      // si admin, redirigir a admin.html (como tenías)
+      if (userInfo.role === "admin") {
+        window.location.href = "admin.html";
       }
     } catch (err) {
       loginError && (loginError.textContent = "Error de red: " + err.message, loginError.classList.remove("hidden"));
-    } finally { showSpinner(loginSpinner, false); }
+      setDotUserState("err");
+    } finally {
+      showSpinner(loginSpinner, false);
+    }
   });
 
-  // Hydrate UI
-  function hydrateUserUI() {
-    if (userInfo && token) {
-      userLabel && (userLabel.textContent = userInfo.username);
-      if (avatarImg) { avatarImg.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userInfo.username)}&background=c5121b&color=fff`; avatarImg.classList.remove("hidden"); }
-      logoutBtn && logoutBtn.classList.remove("hidden");
-      if (adminPanel) adminPanel.hidden = userInfo.role !== "admin";
-      // show admin nav link
-      const adminLink = document.querySelector(".nav-link.admin-only");
-      if (adminLink) adminLink.classList.toggle("hidden", userInfo.role !== "admin");
-      dotUser && (dotUser.classList.remove("off","err"), dotUser.classList.add("ok"));
+
+  // Hydration at start: prefer /me so role changes in DB are reflected// initialHydrate: intenta /me, maneja token inválido y fallback
+  (async function initialHydrate(){
+    token = localStorage.getItem("tc2000_token") || null;
+    let stored = JSON.parse(localStorage.getItem("tc2000_user") || "null");
+    if (token) {
+      const meResp = await fetchMe();
+      if (meResp === null) {
+        // error de red consultando /me: mantener stored o payload
+        if (stored) {
+          userInfo = stored;
+        } else {
+          const payload = decodeJwtPayload(token);
+          userInfo = payload && payload.username ? { username: payload.username, role: payload.role || "user" } : null;
+        }
+        saveUserInfoToStorage(userInfo);
+        hydrateUserUI();
+      } else if (meResp && meResp.username) {
+        // /me devolvió info válida
+        userInfo = { username: meResp.username, role: meResp.role || stored?.role || "user" };
+        saveUserInfoToStorage(userInfo);
+        hydrateUserUI();
+      } else {
+        // /me respondió 401 o inválido → NO borrar sesión si stored existe
+        if (stored) {
+          userInfo = stored;
+          hydrateUserUI();
+        } else {
+          token = null;
+          userInfo = null;
+          localStorage.removeItem("tc2000_token");
+          localStorage.removeItem("tc2000_user");
+          hydrateUserUI();
+          setDotUserState("err");
+        }
+      }      
     } else {
-      userLabel && (userLabel.textContent = "Ingresar");
-      avatarImg && avatarImg.classList.add("hidden");
-      logoutBtn && logoutBtn.classList.add("hidden");
-      if (adminPanel) adminPanel.hidden = true;
-      const adminLink = document.querySelector(".nav-link.admin-only");
-      if (adminLink) adminLink.classList.add("hidden");
-      dotUser && (dotUser.classList.remove("ok","err"), dotUser.classList.add("off"));
+      userInfo = stored;
+      hydrateUserUI();
     }
-  }
+  })();
+
+
+  // logout
   logoutBtn && logoutBtn.addEventListener("click", () => {
     token = null; userInfo = null;
     localStorage.removeItem("tc2000_token"); localStorage.removeItem("tc2000_user");
     hydrateUserUI();
     toast("Sesión cerrada");
+    // if currently on admin.html, redirect to index
+    if (window.location.pathname.endsWith("admin.html")) window.location.href = "index.html";
   });
 
-  // Pilots CRUD & rendering (use createPilotCard)
+  // === Pilots: load & render (public view) ===
   async function loadPilots() {
     try {
       const res = await fetch(`${API_BASE}/pilots`);
@@ -279,11 +401,125 @@ document.addEventListener("DOMContentLoaded", () => {
 
   refreshPilots && refreshPilots.addEventListener("click", () => { loadPilots(); toast("Actualizando pilotos..."); });
 
+  // === Teams: load & render (public view) ===
+  async function loadTeams() {
+    if (!teamsGrid) return;
+    try {
+      teamsGrid.innerHTML = "<div class='card'>Cargando equipos...</div>";
+      const res = await fetch(`${API_BASE}/teams`);
+      if (!res.ok) {
+        const txt = await res.text().catch(()=>"");
+        console.error("/teams error", res.status, txt);
+        teamsGrid.innerHTML = `<div class="card">Error cargando equipos.</div>`;
+        return;
+      }
+      const teams = await res.json();
+      renderTeams(teams || []);
+    } catch (err) {
+      console.error("loadTeams error", err);
+      teamsGrid.innerHTML = `<div class='card'>Error: ${err.message}</div>`;
+    }
+  }
+
+  function renderTeams(teams) {
+    if (!teamsGrid) return;
+    teamsGrid.innerHTML = "";
+    if (!teams.length) {
+      teamsGrid.innerHTML = `<div class="card">No hay equipos.</div>`;
+      return;
+    }
+
+    teams.forEach(t => {
+      // crear tarjeta DOM en vez de innerHTML para manejar correctamente src/onerror
+      const card = document.createElement("div");
+      card.className = "card team-card";
+
+      const inner = document.createElement("div");
+      inner.className = "team-card-inner";
+      inner.style.display = "flex";
+      inner.style.gap = "12px";
+      inner.style.alignItems = "center";
+
+      // avatar contenedor
+      const avatarWrap = document.createElement("div");
+      avatarWrap.className = "team-avatar";
+      avatarWrap.setAttribute("aria-hidden", "true");
+      avatarWrap.style.width = "56px";
+      avatarWrap.style.height = "56px";
+      avatarWrap.style.borderRadius = "8px";
+      avatarWrap.style.overflow = "hidden";
+      avatarWrap.style.flex = "0 0 56px";
+      avatarWrap.style.display = "flex";
+      avatarWrap.style.alignItems = "center";
+      avatarWrap.style.justifyContent = "center";
+      avatarWrap.style.fontWeight = "700";
+      avatarWrap.style.background = "#222";
+      avatarWrap.style.color = "#fff";
+
+      // preparar rutas candidatas:
+      const candidates = [];
+      if (t.logo) candidates.push(String(t.logo));
+      if (t.image) candidates.push(String(t.image));
+      if (t._id) candidates.push(`./resources/uploads/equipos/${encodeURIComponent(t._id)}.png`);
+      if (t.name) {
+        const safeName = String(t.name).replace(/\s+/g, "-").replace(/[^a-zA-Z0-9\-_]/g, "");
+        if (safeName) candidates.push(`./resources/uploads/equipos/${encodeURIComponent(safeName)}.png`);
+      }
+
+      // crear img y setear primera candidate; onerror -> siguiente candidate, finally use defaultPath
+      const img = document.createElement("img");
+      img.alt = t.name ? `${t.name} logo` : "equipo";
+      img.style.width = "56px";
+      img.style.height = "56px";
+      img.style.objectFit = "cover";
+      img.style.display = "block";
+
+      let attemptIndex = 0;
+      function tryNextSrc() {
+        if (attemptIndex < candidates.length) {
+          img.src = candidates[attemptIndex];
+          attemptIndex++;
+        } else {
+          img.src = defaultPath;
+        }
+      }
+      img.onerror = function() {
+        // if image fails, try next candidate
+        tryNextSrc();
+      };
+      // start
+      tryNextSrc();
+
+      avatarWrap.appendChild(img);
+
+      const info = document.createElement("div");
+      info.style.flex = "1";
+      const nameDiv = document.createElement("div");
+      nameDiv.style.fontWeight = "700";
+      nameDiv.textContent = t.name || "Equipo";
+      const countryDiv = document.createElement("div");
+      countryDiv.style.fontSize = "13px";
+      countryDiv.style.color = "var(--muted)";
+      countryDiv.textContent = t.base_country || "";
+
+      info.appendChild(nameDiv);
+      info.appendChild(countryDiv);
+
+      // no "Ver" button per tu pedido — simplificamos y dejamos solo avatar + texto
+      inner.appendChild(avatarWrap);
+      inner.appendChild(info);
+
+      card.appendChild(inner);
+      teamsGrid.appendChild(card);
+    });
+  }
+
+  // createPilot (public/admin action bound in UI)
   createPilotBtn && createPilotBtn.addEventListener("click", async () => {
     if (!token) { toast("Debe iniciar sesión como admin"); return; }
-    const name = $("#pilot_name").value.trim();
-    const team = $("#pilot_team").value.trim();
-    const car_number = $("#pilot_number").value;
+    const name = $("#pilot_name") ? $("#pilot_name").value.trim() : "";
+    const team = $("#pilot_team") ? $("#pilot_team").value.trim() : "";
+    const car_number = $("#pilot_number") ? $("#pilot_number").value : "";
     if (!name) { toast("Nombre requerido"); return; }
     try {
       const res = await fetch(`${API_BASE}/pilots`, {
@@ -293,95 +529,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const data = await res.json();
       if (!res.ok) toast("Error: " + (data.error || JSON.stringify(data)));
-      else { toast("Piloto creado"); $("#pilot_name").value = ""; $("#pilot_team").value = ""; $("#pilot_number").value = ""; loadPilots(); }
+      else { toast("Piloto creado"); if($("#pilot_name")) { $("#pilot_name").value = ""; $("#pilot_team").value = ""; $("#pilot_number").value = ""; } loadPilots(); }
     } catch (err) {
       console.error("createPilot error", err);
       toast("Error de red: " + err.message);
     }
   });
 
-  // --- New Admin page logic ---
-  // admin section is <section id="admin">... in index.html
-  const adminSection = $("#admin");
-  const teamListEl = $("#teamsList");
-  const createTeamBtn = $("#createTeamBtn");
-  const teamNameInput = $("#team_name");
-  const teamCountryInput = $("#team_country");
-
-  async function loadTeams() {
-    if (!teamListEl) return;
-    try {
-      const res = await fetch(`${API_BASE}/teams`);
-      if (!res.ok) {
-        const txt = await res.text();
-        console.warn("/teams status", res.status, txt);
-        teamListEl.innerHTML = `<div class="card">No se pueden cargar equipos (endpoint /teams faltante o error).</div>`;
-        return;
-      }
-      const teams = await res.json();
-      renderTeams(teams || []);
-    } catch (err) {
-      console.error("loadTeams error", err);
-      teamListEl.innerHTML = `<div class="card">Error cargando equipos: ${err.message}</div>`;
-    }
-  }
-
-  function renderTeams(teams) {
-    if (!teamListEl) return;
-    teamListEl.innerHTML = "";
-    if (!teams.length) { teamListEl.innerHTML = `<div class="card">No hay equipos.</div>`; return; }
-    teams.forEach(t => {
-      const div = document.createElement("div");
-      div.className = "card";
-      div.style.display = "flex";
-      div.style.justifyContent = "space-between";
-      div.style.alignItems = "center";
-      div.innerHTML = `<div><strong>${escapeHtml(t.name)}</strong><div style="font-size:13px;color:var(--muted)">${escapeHtml(t.base_country||"")}</div></div>
-                       <div><button class="btn small secondary" data-teamid="${t._id}">Eliminar</button></div>`;
-      teamListEl.appendChild(div);
-      // delete handler (optimistic)
-      const delBtn = div.querySelector("button");
-      delBtn && delBtn.addEventListener("click", async () => {
-        if (!confirm("Eliminar equipo?")) return;
-        try {
-          const res = await fetch(`${API_BASE}/teams/${t._id}`, { method: "DELETE", headers: { "Authorization": "Bearer " + token }});
-          if (!res.ok) { toast("Error eliminando equipo"); return; }
-          toast("Equipo eliminado");
-          loadTeams();
-        } catch (err) { toast("Error de red"); }
-      });
-    });
-  }
-
-  // create team
-  createTeamBtn && createTeamBtn.addEventListener("click", async () => {
-    if (!token) { toast("Debes ser admin"); return; }
-    const name = teamNameInput?.value?.trim() || "";
-    const base_country = teamCountryInput?.value?.trim() || "";
-    if (!name) { toast("Nombre del equipo requerido"); return; }
-    try {
-      const res = await fetch(`${API_BASE}/teams`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
-        body: JSON.stringify({ name, base_country })
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast("Error creando equipo: " + (data.error || res.status));
-        return;
-      }
-      toast("Equipo creado");
-      teamNameInput.value = ""; teamCountryInput.value = "";
-      loadTeams();
-    } catch (err) {
-      console.error("createTeam error", err);
-      toast("Error de red: " + err.message);
-    }
-  });
-
   // --- Realtime (SSE & WS) ---
   (function setupRealtime(){
-    // SSE
     try {
       const sse = new EventSource(`${API_BASE}/sse`);
       sse.onopen = () => { dotSSE && (dotSSE.classList.remove("off","err"), dotSSE.classList.add("ok")); };
@@ -390,6 +546,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === "pilot_created") loadPilots();
+          if (msg.type === "team_updated" || msg.type === "team_created") loadTeams();
           toast("Evento SSE: " + (msg.type || "evento"));
         } catch(err){ console.error("SSE parse", err); }
       };
@@ -397,53 +554,31 @@ document.addEventListener("DOMContentLoaded", () => {
       dotSSE && (dotSSE.classList.remove("ok"), dotSSE.classList.add("err"));
     }
 
-    // WS
     try {
       const socket = io(API_BASE);
       socket.on("connect", () => { dotWS && (dotWS.classList.remove("off","err"), dotWS.classList.add("ok")); });
       socket.on("disconnect", () => { dotWS && (dotWS.classList.remove("ok"), dotWS.classList.add("off")); });
       socket.on("connect_error", () => { dotWS && (dotWS.classList.remove("ok"), dotWS.classList.add("err")); });
       socket.on("pilot_created", msg => { toast("WS: Nuevo piloto " + (msg.name || "")); loadPilots(); });
+      socket.on("team_created", msg => { toast("WS: Equipo creado " + (msg.name || "")); loadTeams(); });
+      socket.on("team_updated", msg => { toast("WS: Equipo actualizado " + (msg.name || "")); loadTeams(); });
     } catch(err) {
       dotWS && (dotWS.classList.remove("ok"), dotWS.classList.add("err"));
     }
   })();
 
-  // helper escape
-  function escapeHtml(s){ return String(s||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'", "&#39;"); }
-
-  // initial hydration
-  token = localStorage.getItem("tc2000_token") || null;
-  userInfo = JSON.parse(localStorage.getItem("tc2000_user") || "null");
-  hydrateUserUI();
-
-  // load initial data for pages
+  // initial data load
   loadPilots();
-  loadTeams(); // if endpoint exists, loads; otherwise will show message in UI
-
-  // hash routing: when navigating to #admin, ensure only admin can view or redirect
-  window.addEventListener("hashchange", () => {
-    const h = window.location.hash || "#inicio";
-    if (h === "#admin") {
-      if (!userInfo || userInfo.role !== "admin") {
-        toast("Acceso restringido: Admins solamente");
-        history.replaceState(null, "", "#inicio");
-        document.querySelector("#inicio")?.scrollIntoView({ behavior: "smooth" });
-      } else {
-        document.querySelector("#admin")?.scrollIntoView({ behavior: "smooth" });
-      }
-    }
-  });
+  loadTeams();
 
   // close modal ESC
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       authModal && authModal.classList.add("hidden");
-      if (drawer && drawer.classList.contains("open")) closeDrawer();
+      if (drawer && drawer.classList.contains("open")) drawer.classList.remove("open");
     }
   });
 
   // expose debug funcs
   window.tc2000 = { loadPilots, loadTeams, toast, setTheme };
-
 }); // end DOMContentLoaded
