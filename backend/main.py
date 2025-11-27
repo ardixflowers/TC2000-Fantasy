@@ -14,7 +14,7 @@ from bson import ObjectId
 # -------------------
 # Configuración
 # -------------------
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config["MONGO_URI"] = os.getenv("MONGO_URI", "mongodb://localhost:27017/tc2000_fantasy")
@@ -93,7 +93,7 @@ def send_sse(message: dict):
 # -------------------
 @app.route("/")
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
 # -------------------
 # Auth
