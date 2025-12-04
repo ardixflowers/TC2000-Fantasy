@@ -1,6 +1,7 @@
 import os
 import json
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
 from flask_pymongo import PyMongo
 from flask_cors import CORS
@@ -10,6 +11,10 @@ import jwt
 from functools import wraps
 import queue
 from bson import ObjectId
+import logging
+logging.basicConfig(level=logging.INFO)
+
+
 
 # -------------------
 # Configuración
@@ -24,7 +29,37 @@ mongo = PyMongo(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # Cola para SSE
-sse_queue = queue.Queue()
+sse_queue = queue.Queue(maxsize=100)
+
+# Handler personalizado para capturar logs del servidor
+class SSELogHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            log_message = record.getMessage()
+            msg = {
+                "type": "server",
+                "message": log_message,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            try:
+                # No bloquear JAMÁS
+                sse_queue.put_nowait(msg)
+            except queue.Full:
+                # Si la cola está llena, descartar el mensaje
+                pass
+
+        except Exception as e:
+            print(f"Error en SSELogHandler: {e}")
+
+# --------------------
+# Logging Werkzeug → SSE
+# --------------------
+server_logger = logging.getLogger()
+server_logger.setLevel(logging.INFO)
+
+if not any(isinstance(h, SSELogHandler) for h in server_logger.handlers):
+    server_logger.addHandler(SSELogHandler())
+
 
 # -------------------
 # Utils
@@ -41,7 +76,7 @@ def create_jwt(user_id: str, role: str):
     payload = {
         "user_id": str(user_id),
         "role": role,
-        "exp": datetime.utcnow() + timedelta(hours=8)
+        "exp": datetime.now(timezone.utc) + timedelta(hours=8)
     }
     return jwt.encode(payload, app.config["SECRET_KEY"], algorithm="HS256")
 
@@ -81,12 +116,53 @@ def audit_log(action, resource_type=None, resource_id=None, details=None, result
         "resource_id": resource_id,
         "details": details,
         "result": result,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     })
 
 
 def send_sse(message: dict):
+    """Envía un mensaje SSE con tipo, mensaje y timestamp"""
+    if "timestamp" not in message:
+        message["timestamp"] = datetime.now(timezone.utc).isoformat()
+    if "type" not in message:
+        message["type"] = "info"
     sse_queue.put(message)
+
+
+def log_action(action_type="info", message="", resource_type=None, resource_id=None, details=None, result="SUCCESS"):
+    """Registra una acción y la envía por SSE"""
+    log_entry = {
+        "type": action_type,
+        "message": message,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "details": details,
+        "result": result,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Enviar por SSE
+    send_sse(log_entry)
+    
+    # También guardar en base de datos
+    audit_log(message or action_type, resource_type, resource_id, details, result)
+
+
+
+def serialize_user(user):
+    """Serializa un usuario para JSON, convirtiendo ObjectId y datetime"""
+    if not user:
+        return None
+    user["_id"] = str(user["_id"])
+    # Convertir datetime a ISO 8601
+    if user.get("last_login") and hasattr(user["last_login"], "isoformat"):
+        user["last_login"] = user["last_login"].isoformat()
+    if user.get("created_at") and hasattr(user["created_at"], "isoformat"):
+        user["created_at"] = user["created_at"].isoformat()
+    # No devolver hash de contraseña
+    user.pop("password_hash", None)
+    user.pop("api_key_enc", None)
+    return user
 
 # -------------------
 # Index
@@ -114,12 +190,12 @@ def register():
         "email": data.get("email"),
         "password_hash": hashed,
         "role": data["role"],
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
         "last_login": None,
         "api_key_enc": None
     }).inserted_id
 
-    audit_log("user_register", "users", str(user_id))
+    log_action("success", f"Nuevo usuario registrado: '{data['username']}'", "auth", str(user_id))
 
     return jsonify({"message": "user created", "user_id": str(user_id)}), 201
 
@@ -130,13 +206,13 @@ def login():
     user = mongo.db.users.find_one({"username": data.get("username")})
 
     if not user or not check_password(data.get("password", ""), user.get("password_hash", b"")):
-        audit_log("login_fail", "users", None, {"username": data.get("username")}, result="fail")
+        log_action("error", f"Intento de login fallido para '{data.get('username')}'", "auth", None)
         return jsonify({"error": "invalid credentials"}), 401
 
     token = create_jwt(user["_id"], user["role"])
-    mongo.db.users.update_one({"_id": user["_id"]}, {"$set": {"last_login": datetime.utcnow()}})
+    mongo.db.users.update_one({"_id": user["_id"]}, {"$set": {"last_login": datetime.now(timezone.utc)}})
 
-    audit_log("login_success", "users", str(user["_id"]))
+    log_action("success", f"Login exitoso: '{user['username']}' ({user['role']})", "auth", str(user["_id"]))
 
     return jsonify({"token": token})
 
@@ -169,7 +245,7 @@ def create_pilot():
         "team": data.get("team"),
         "car_number": data.get("car_number"),
         "current_score": 0,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     }).inserted_id
 
     audit_log("pilot_create", "pilots", str(pilot_id), details=data)
@@ -223,7 +299,7 @@ def create_team():
         "name": data.get("name"),
         "base_country": data.get("base_country"),
         "logo_png": data.get("logo_png"),
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     }
 
     team_id = mongo.db.teams.insert_one(team).inserted_id
@@ -267,9 +343,24 @@ def delete_team(team_id):
 @app.route("/sse")
 def sse_stream():
     def event_stream():
-        while True:
-            msg = sse_queue.get()
-            yield f"data: {json.dumps(msg)}\n\n"
+        try:
+            # Enviar mensaje inicial de conexión
+            yield f"data: {json.dumps({'type': 'info', 'message': 'Conectado a logs', 'timestamp': datetime.now(timezone.utc).isoformat()})}\n\n"
+            
+            while True:
+                try:
+                    # Usar timeout para no bloquear indefinidamente
+                    msg = sse_queue.get(timeout=30)
+                    yield f"data: {json.dumps(msg)}\n\n"
+                except queue.Empty:
+                    # Si no hay mensajes en 30 segundos, enviar heartbeat
+                    yield f"data: {json.dumps({'type': 'heartbeat', 'message': 'latido', 'timestamp': datetime.now(timezone.utc).isoformat()})}\n\n"
+        except GeneratorExit:
+            # Manejo correcto de cuando el cliente desconecta
+            pass
+        except Exception as e:
+            print(f"Error en SSE: {e}")
+            pass
 
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
@@ -290,6 +381,138 @@ def me():
     except Exception as e:
         print("error en /me:", e)
         return jsonify({"error": str(e)}), 500
+
+
+# -------------------
+# Admin Users CRUD
+# -------------------
+@app.route("/admin/users", methods=["GET"])
+@auth_required(role="admin")
+def list_users():
+    """Lista todos los usuarios"""
+    users = list(mongo.db.users.find())
+    return jsonify([serialize_user(u) for u in users])
+
+
+@app.route("/admin/users", methods=["POST"])
+@auth_required(role="admin")
+def create_user():
+    """Crear un nuevo usuario"""
+    data = request.json or {}
+    
+    if not data.get("username") or not data.get("email") or not data.get("password"):
+        return jsonify({"error": "missing required fields"}), 400
+    
+    if mongo.db.users.find_one({"username": data["username"]}):
+        return jsonify({"error": "username already exists"}), 400
+    
+    if mongo.db.users.find_one({"email": data["email"]}):
+        return jsonify({"error": "email already exists"}), 400
+    
+    hashed = hash_password(data["password"])
+    
+    user_id = mongo.db.users.insert_one({
+        "username": data["username"],
+        "email": data["email"],
+        "password_hash": hashed,
+        "role": data.get("role", "user"),
+        "is_active": data.get("is_active", True),
+        "created_at": datetime.now(timezone.utc),
+        "last_login": None,
+        "api_key_enc": None
+    }).inserted_id
+    
+    log_action("success", f"Usuario '{data['username']}' creado", "users", str(user_id), {"email": data["email"], "role": data.get("role", "user")})
+    
+    return jsonify({"user_id": str(user_id), "message": "user created"}), 201
+
+
+@app.route("/admin/users/<user_id>", methods=["GET"])
+@auth_required(role="admin")
+def get_user(user_id):
+    """Obtener datos de un usuario específico"""
+    try:
+        oid = ObjectId(user_id)
+    except:
+        return jsonify({"error": "invalid user id"}), 400
+    
+    user = mongo.db.users.find_one({"_id": oid})
+    
+    if not user:
+        return jsonify({"error": "user not found"}), 404
+    
+    return jsonify(serialize_user(user))
+
+
+@app.route("/admin/users/<user_id>", methods=["PUT"])
+@auth_required(role="admin")
+def update_user(user_id):
+    """Actualizar datos de un usuario"""
+    try:
+        oid = ObjectId(user_id)
+    except:
+        return jsonify({"error": "invalid user id"}), 400
+    
+    user = mongo.db.users.find_one({"_id": oid})
+    
+    if not user:
+        return jsonify({"error": "user not found"}), 404
+    
+    data = request.json or {}
+    
+    # Validar si el email ya existe en otro usuario
+    if "email" in data and data["email"] != user.get("email"):
+        if mongo.db.users.find_one({"email": data["email"]}):
+            return jsonify({"error": "email already exists"}), 400
+    
+    update_data = {}
+    
+    if "username" in data:
+        update_data["username"] = data["username"]
+    if "email" in data:
+        update_data["email"] = data["email"]
+    if "role" in data:
+        update_data["role"] = data["role"]
+    if "is_active" in data:
+        update_data["is_active"] = data["is_active"]
+    if "password" in data and data["password"]:
+        if len(data["password"]) < 6:
+            return jsonify({"error": "password must be at least 6 characters"}), 400
+        update_data["password_hash"] = hash_password(data["password"])
+    
+    mongo.db.users.update_one({"_id": oid}, {"$set": update_data})
+    
+    log_action("info", f"Usuario '{user['username']}' actualizado", "users", user_id, update_data)
+    
+    return jsonify({"message": "user updated"})
+
+
+@app.route("/admin/users/<user_id>", methods=["DELETE"])
+@auth_required(role="admin")
+def delete_user(user_id):
+    """Eliminar un usuario"""
+    try:
+        oid = ObjectId(user_id)
+    except:
+        return jsonify({"error": "invalid user id"}), 400
+    
+    # No permitir eliminar al admin actual
+    if str(oid) == request.user_id:
+        return jsonify({"error": "cannot delete your own account"}), 403
+    
+    user = mongo.db.users.find_one({"_id": oid})
+    
+    if not user:
+        return jsonify({"error": "user not found"}), 404
+    
+    result = mongo.db.users.delete_one({"_id": oid})
+    
+    if result.deleted_count == 0:
+        return jsonify({"error": "failed to delete user"}), 500
+    
+    log_action("warning", f"Usuario '{user['username']}' eliminado", "users", user_id, {"email": user.get("email")})
+    
+    return jsonify({"message": "user deleted"})
 
 
 # -------------------

@@ -1,7 +1,7 @@
 import { toast, showModal, hideModal, showSpinner, createPilotCard } from './components.js';
 
 // La IP debe coincidir con la IP REAL de tu servidor (la que viste en el registro)
-const API_BASE = "http://10.192.66.251:5000"; 
+const API_BASE = "http://127.0.0.1:5000"; 
 const defaultPath = './resources/uploads/default-avatar.png';
 
 // selectores
